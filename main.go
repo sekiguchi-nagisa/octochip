@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/alecthomas/kong"
+	"os"
 )
 
 var CLI struct {
@@ -14,9 +16,9 @@ var CLI struct {
 		Path string `arg:"positional" required:"" help:"Path to CHIP-8 ROM"`
 	} `cmd:"" help:"Disassemble CHIP-8 ROM"`
 
-	Build struct {
-		Path string `arg:"positional" required:"" help:"Path to CHIP-8 Program"`
-	} `cmd:"" help:"Build CHIP-8 ROM"`
+	//Build struct {
+	//	Path string `arg:"positional" required:"" help:"Path to CHIP-8 Program"`
+	//} `cmd:"" help:"Build CHIP-8 ROM"`
 }
 
 func main() {
@@ -25,9 +27,20 @@ func main() {
 	case "run <path>":
 		fmt.Println("FIXME: run command")
 	case "disasm <path>":
-		fmt.Println("FIXME: disasm command")
-	case "build <path>":
-		fmt.Println("FIXME: build command")
+		//Dis
+		buf, err := os.ReadFile(CLI.Disasm.Path)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "disasm error: %v\n", err)
+			os.Exit(1)
+		}
+		reader := bytes.NewReader(buf)
+		err = Disassemble(reader, os.Stdout)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "disasm error: %v\n", err)
+			os.Exit(1)
+		}
+	//case "build <path>":
+	//	fmt.Println("FIXME: build command")
 	default:
 		panic(ctx.Command())
 	}
