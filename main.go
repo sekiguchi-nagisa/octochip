@@ -22,6 +22,7 @@ func main() {
 	switch ctx.Command() {
 	case "run <path>":
 		fmt.Println("FIXME: run command")
+		_ = NewSDLDevice()
 	case "disasm <path>":
 		//Dis
 		buf, err := os.ReadFile(CLI.Disasm.Path)
