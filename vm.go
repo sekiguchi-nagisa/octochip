@@ -101,6 +101,8 @@ func (vm *Chip8VM) Dump(writer io.Writer) {
 	_, _ = fmt.Fprintf(writer, "DT=%d, ST=%d\n", vm.dt, vm.st)
 }
 
+const timerCountMicroSec = 16667
+
 // Run entry point
 func (vm *Chip8VM) Run() {
 	prevMicroSec := time.Now().UnixMicro()
@@ -110,7 +112,8 @@ func (vm *Chip8VM) Run() {
 
 		// decrement delay/sound timer
 		curMicroSec := time.Now().UnixMicro()
-		dec := (curMicroSec - prevMicroSec) / 16667
+		elapsed := curMicroSec - prevMicroSec
+		dec := elapsed / timerCountMicroSec
 		if dec <= int64(vm.dt) {
 			vm.dt = uint8(dec)
 		} else {
@@ -121,7 +124,7 @@ func (vm *Chip8VM) Run() {
 		} else {
 			vm.st = 0
 		}
-		prevMicroSec = curMicroSec
+		prevMicroSec = curMicroSec - elapsed%timerCountMicroSec
 	}
 }
 
