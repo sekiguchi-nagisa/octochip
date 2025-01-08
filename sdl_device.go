@@ -5,10 +5,15 @@ import "github.com/veandco/go-sdl2/sdl"
 type SDLDevice struct {
 }
 
-func NewSDLDevice() *SDLDevice {
+func (sdlDevice *SDLDevice) Setup() error {
 	err := sdl.Init(sdl.INIT_EVERYTHING)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	return &SDLDevice{}
+	return nil
+}
+
+func (sdlDevice *SDLDevice) Teardown() error {
+	sdl.Quit()
+	return nil
 }

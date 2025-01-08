@@ -22,7 +22,18 @@ func main() {
 	switch ctx.Command() {
 	case "run <path>":
 		fmt.Println("FIXME: run command")
-		_ = NewSDLDevice()
+		device := SDLDevice{}
+		err := device.Setup()
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "device setup error: %v\n", err)
+			os.Exit(1)
+		}
+		defer func(device *SDLDevice) {
+			err := device.Teardown()
+			if err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "device teardown error: %v\n", err)
+			}
+		}(&device)
 	case "disasm <path>":
 		//Dis
 		buf, err := os.ReadFile(CLI.Disasm.Path)
