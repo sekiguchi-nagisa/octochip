@@ -15,10 +15,6 @@ var CLI struct {
 	Disasm struct {
 		Path string `arg:"positional" required:"" help:"Path to CHIP-8 ROM"`
 	} `cmd:"" help:"Disassemble CHIP-8 ROM"`
-
-	//Build struct {
-	//	Path string `arg:"positional" required:"" help:"Path to CHIP-8 Program"`
-	//} `cmd:"" help:"Build CHIP-8 ROM"`
 }
 
 func main() {
@@ -39,8 +35,6 @@ func main() {
 			_, _ = fmt.Fprintf(os.Stderr, "disasm error: %v\n", err)
 			os.Exit(1)
 		}
-	//case "build <path>":
-	//	fmt.Println("FIXME: build command")
 	default:
 		panic(ctx.Command())
 	}

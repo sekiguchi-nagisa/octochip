@@ -110,7 +110,7 @@ func (vm *Chip8VM) Run() {
 
 		// decrement delay/sound timer
 		curMicroSec := time.Now().UnixMicro()
-		dec := curMicroSec - prevMicroSec/16667
+		dec := (curMicroSec - prevMicroSec) / 16667
 		if dec <= int64(vm.dt) {
 			vm.dt = uint8(dec)
 		} else {
