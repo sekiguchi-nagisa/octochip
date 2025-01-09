@@ -35,7 +35,6 @@ func main() {
 			}
 		}(&device)
 	case "disasm <path>":
-		//Dis
 		buf, err := os.ReadFile(CLI.Disasm.Path)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "disasm error: %v\n", err)
