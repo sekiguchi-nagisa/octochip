@@ -38,11 +38,15 @@ func main() {
 
 		buf, err := os.ReadFile(CLI.Run.Path)
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "disasm error: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "run error: %v\n", err)
 			os.Exit(1)
 		}
 		reader := bytes.NewReader(buf)
 		vm, err := NewChip8VM(reader, nil, nil)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "run error: %v\n", err)
+			os.Exit(1)
+		}
 		vm.Dump(os.Stdout)
 		time.Sleep(100 * time.Second)
 	case "disasm <path>":
