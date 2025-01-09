@@ -8,8 +8,6 @@ type SDLDevice struct {
 	texture  *sdl.Texture
 }
 
-const winScale = 10
-
 func (sdlDevice *SDLDevice) Setup() error {
 	err := sdl.Init(sdl.INIT_EVERYTHING)
 	if err != nil {
@@ -31,6 +29,18 @@ func (sdlDevice *SDLDevice) Setup() error {
 }
 
 func (sdlDevice *SDLDevice) Teardown() error {
+	err := sdlDevice.window.Destroy()
+	if err != nil {
+		return err
+	}
+	err = sdlDevice.renderer.Destroy()
+	if err != nil {
+		return err
+	}
+	err = sdlDevice.texture.Destroy()
+	if err != nil {
+		return err
+	}
 	sdl.Quit()
 	return nil
 }
