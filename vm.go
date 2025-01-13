@@ -9,18 +9,16 @@ import (
 	"time"
 )
 
-type Display interface {
-	Clear()
-	Draw(x byte, y byte, addr uint16, n byte) uint8
-}
+const (
+	ScreenWidth  = 64
+	ScreenHeight = 32
+	Chip8RAMSize = 4096
+	KeyNum       = 16
+)
 
-type Keyboard interface {
-	KeyPressed(key uint8) bool
-	WaitKey() uint8
-	Poll()
-}
+type Screen = [ScreenWidth * ScreenHeight]byte
 
-const Chip8RAMSize = 4096
+type KeyPressed = uint16
 
 var fontSpriteSet = [80]uint8{
 	0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -42,20 +40,20 @@ var fontSpriteSet = [80]uint8{
 }
 
 type Chip8VM struct {
-	ram      [Chip8RAMSize]uint8
-	reg      [16]uint8
-	I        uint16     // for memory address
-	dt       uint8      // for delay timer
-	st       uint8      // for sound timer
-	pc       uint16     // program counter
-	sp       uint8      // stack pointer
-	stack    [16]uint16 // maintains return address
-	rng      *rand.Rand
-	display  Display
-	keyboard Keyboard
+	ram        [Chip8RAMSize]uint8
+	reg        [16]uint8
+	I          uint16     // for memory address
+	dt         uint8      // for delay timer
+	st         uint8      // for sound timer
+	pc         uint16     // program counter
+	sp         uint8      // stack pointer
+	stack      [16]uint16 // maintains return address
+	rng        *rand.Rand
+	screen     Screen
+	keyPressed KeyPressed
 }
 
-func NewChip8VM(reader io.Reader, display Display, keyboard Keyboard) (*Chip8VM, error) {
+func NewChip8VM(reader io.Reader) (*Chip8VM, error) {
 	buf, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
@@ -63,8 +61,6 @@ func NewChip8VM(reader io.Reader, display Display, keyboard Keyboard) (*Chip8VM,
 
 	vm := Chip8VM{}
 	vm.rng = rand.New(rand.NewSource(42))
-	vm.display = display
-	vm.keyboard = keyboard
 
 	// full preset font sprite
 	for i := 0; i < len(fontSpriteSet); i++ {
@@ -106,7 +102,6 @@ func (vm *Chip8VM) Run() {
 	prevMicroSec := time.Now().UnixMicro()
 	for int(vm.pc) <= len(vm.ram) {
 		vm.dispatchSingleIns()
-		vm.keyboard.Poll()
 
 		// decrement delay/sound timer
 		curMicroSec := time.Now().UnixMicro()
@@ -144,7 +139,7 @@ func (vm *Chip8VM) dispatchSingleIns() {
 	case OP_0NNN:
 		// do nothing
 	case OP_00E0:
-		vm.display.Clear()
+		vm.screen = Screen{} // clear screen content
 	case OP_00EE:
 		vm.pc = vm.stack[vm.sp-1]
 		vm.sp--
@@ -216,19 +211,49 @@ func (vm *Chip8VM) dispatchSingleIns() {
 	case OP_CXNN:
 		vm.reg[r1] = uint8(vm.rng.Intn(256)) & num
 	case OP_DXYN:
-		vm.reg[0xF] = vm.display.Draw(vm.reg[r1], vm.reg[r2], vm.I, r3)
+		coordinateX := vm.reg[r1]
+		coordinateY := vm.reg[r2]
+		vm.reg[0xF] = 0
+		n := r3
+		for i := 0; i < int(n); i++ {
+			addr := vm.I + uint16(i)
+			sprite := vm.ram[addr]
+			for j := 0; j < 8; j++ {
+				x := (int(coordinateX) + j) % ScreenWidth
+				y := (int(coordinateY) + i) % ScreenHeight
+				index := ScreenWidth*y + x
+				pixel := 0
+				if (sprite & (0x80 >> uint(j))) != 0 {
+					pixel = 1
+				}
+				old := vm.screen[index]
+				vm.screen[index] ^= byte(pixel)
+				if old == 1 && pixel == 1 { // screen pixel erased
+					vm.reg[0xF] = 1
+				}
+			}
+		}
 	case OP_EX9E:
-		if vm.keyboard.KeyPressed(vm.reg[r1]) {
+		if vm.keyPressed&(1<<vm.reg[r1]) != 0 {
 			vm.pc += 2
 		}
 	case OP_EXA1:
-		if !vm.keyboard.KeyPressed(vm.reg[r1]) {
+		if vm.keyPressed&(1<<vm.reg[r1]) == 0 {
 			vm.pc += 2
 		}
 	case OP_FX07:
 		vm.reg[r1] = vm.dt
 	case OP_FX0A:
-		vm.reg[r1] = vm.keyboard.WaitKey()
+		if vm.keyPressed == 0 { // no key pressed
+			vm.pc -= 2 // redo
+		} else {
+			for i := 0; i < KeyNum; i++ {
+				if vm.keyPressed&(1<<i) != 0 {
+					vm.reg[r1] = uint8(i)
+					break
+				}
+			}
+		}
 	case OP_FX15:
 		vm.dt = vm.reg[r1]
 	case OP_FX18:
