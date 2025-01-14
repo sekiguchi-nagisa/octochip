@@ -54,6 +54,7 @@ type Chip8VM struct {
 	sp         uint8      // stack pointer
 	stack      [16]uint16 // maintains return address
 	rng        *rand.Rand
+	draw       bool
 	screen     Screen
 	keyPressed KeyPressed
 	device     Device
@@ -116,8 +117,11 @@ func (vm *Chip8VM) Run() error {
 		if !vm.device.PollKey(&vm.keyPressed) {
 			return nil
 		}
-		if err := vm.device.Draw(&vm.screen); err != nil {
-			return err
+		if vm.draw {
+			vm.draw = false
+			if err := vm.device.Draw(&vm.screen); err != nil {
+				return err
+			}
 		}
 
 		// decrement delay/sound timer
@@ -159,6 +163,7 @@ func (vm *Chip8VM) dispatchSingleIns() {
 		// do nothing
 	case OP_00E0:
 		vm.screen = Screen{} // clear screen content
+		vm.draw = true
 	case OP_00EE:
 		vm.pc = vm.stack[vm.sp-1]
 		vm.sp--
@@ -252,6 +257,7 @@ func (vm *Chip8VM) dispatchSingleIns() {
 				}
 			}
 		}
+		vm.draw = true
 	case OP_EX9E:
 		if vm.keyPressed&(1<<vm.reg[r1]) != 0 {
 			vm.pc += 2

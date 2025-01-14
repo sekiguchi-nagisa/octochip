@@ -75,25 +75,27 @@ func (sdlDevice *SDLDevice) Draw(screen *Screen) error {
 }
 
 func (sdlDevice *SDLDevice) PollKey(key *KeyPressed) bool {
-	switch event := sdl.PollEvent().(type) {
-	case *sdl.QuitEvent:
-		fmt.Println("Quit")
-		return false
-	case *sdl.KeyboardEvent:
-		switch event.Type {
-		case sdl.KEYDOWN:
-			if keycode, ok := keyMap[event.Keysym.Sym]; ok {
-				fmt.Printf("keydown: %s => %x\n", sdl.GetKeyName(event.Keysym.Sym), keycode)
-				*key = *key | (1 << keycode)
-			}
-			if event.Keysym.Sym == sdl.K_ESCAPE {
-				fmt.Printf("Quit: %s\n", sdl.GetKeyName(event.Keysym.Sym))
-				return false
-			}
-		case sdl.KEYUP:
-			if keycode, ok := keyMap[event.Keysym.Sym]; ok {
-				fmt.Printf("keyup: %s => %x\n", sdl.GetKeyName(event.Keysym.Sym), keycode)
-				*key = *key & ^(1 << keycode)
+	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
+		switch event := event.(type) {
+		case *sdl.QuitEvent:
+			fmt.Println("Quit")
+			return false
+		case *sdl.KeyboardEvent:
+			switch event.Type {
+			case sdl.KEYDOWN:
+				if keycode, ok := keyMap[event.Keysym.Sym]; ok {
+					fmt.Printf("keydown: %s => %x\n", sdl.GetKeyName(event.Keysym.Sym), keycode)
+					*key = *key | (1 << keycode)
+				}
+				if event.Keysym.Sym == sdl.K_ESCAPE {
+					fmt.Printf("Quit: %s\n", sdl.GetKeyName(event.Keysym.Sym))
+					return false
+				}
+			case sdl.KEYUP:
+				if keycode, ok := keyMap[event.Keysym.Sym]; ok {
+					fmt.Printf("keyup: %s => %x\n", sdl.GetKeyName(event.Keysym.Sym), keycode)
+					*key = *key & ^(1 << keycode)
+				}
 			}
 		}
 	}
