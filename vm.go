@@ -125,12 +125,12 @@ func (vm *Chip8VM) Run() error {
 		elapsed := curMicroSec - prevMicroSec
 		dec := elapsed / timerCountMicroSec
 		if dec <= int64(vm.dt) {
-			vm.dt = uint8(dec)
+			vm.dt -= uint8(dec)
 		} else {
 			vm.dt = 0
 		}
 		if dec <= int64(vm.st) {
-			vm.st = uint8(dec)
+			vm.st -= uint8(dec)
 		} else {
 			vm.st = 0
 		}
