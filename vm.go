@@ -39,6 +39,11 @@ var fontSpriteSet = [80]uint8{
 	0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 }
 
+type Device interface {
+	Draw(screen *Screen) error
+	PollKey(key *KeyPressed) bool
+}
+
 type Chip8VM struct {
 	ram        [Chip8RAMSize]uint8
 	reg        [16]uint8
@@ -51,9 +56,10 @@ type Chip8VM struct {
 	rng        *rand.Rand
 	screen     Screen
 	keyPressed KeyPressed
+	device     Device
 }
 
-func NewChip8VM(reader io.Reader) (*Chip8VM, error) {
+func NewChip8VM(reader io.Reader, device Device) (*Chip8VM, error) {
 	buf, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
@@ -61,6 +67,7 @@ func NewChip8VM(reader io.Reader) (*Chip8VM, error) {
 
 	vm := Chip8VM{}
 	vm.rng = rand.New(rand.NewSource(42))
+	vm.device = device
 
 	// full preset font sprite
 	for i := 0; i < len(fontSpriteSet); i++ {
@@ -97,15 +104,26 @@ func (vm *Chip8VM) Dump(writer io.Writer) {
 	_, _ = fmt.Fprintf(writer, "DT=%d, ST=%d\n", vm.dt, vm.st)
 }
 
+const timerCountMicroSec = 16667
+
 // Run entry point
-func (vm *Chip8VM) Run() {
+func (vm *Chip8VM) Run() error {
 	prevMicroSec := time.Now().UnixMicro()
 	for int(vm.pc) <= len(vm.ram) {
 		vm.dispatchSingleIns()
 
+		// i/o
+		if !vm.device.PollKey(&vm.keyPressed) {
+			return nil
+		}
+		if err := vm.device.Draw(&vm.screen); err != nil {
+			return err
+		}
+
 		// decrement delay/sound timer
 		curMicroSec := time.Now().UnixMicro()
-		dec := (curMicroSec - prevMicroSec) / 16667
+		elapsed := curMicroSec - prevMicroSec
+		dec := elapsed / timerCountMicroSec
 		if dec <= int64(vm.dt) {
 			vm.dt = uint8(dec)
 		} else {
@@ -116,8 +134,9 @@ func (vm *Chip8VM) Run() {
 		} else {
 			vm.st = 0
 		}
-		prevMicroSec = curMicroSec
+		prevMicroSec = curMicroSec - elapsed%timerCountMicroSec
 	}
+	return nil
 }
 
 func (vm *Chip8VM) dispatchSingleIns() {

@@ -21,9 +21,31 @@ func main() {
 	ctx := kong.Parse(&CLI, kong.UsageOnError())
 	switch ctx.Command() {
 	case "run <path>":
-		fmt.Println("FIXME: run command")
+		device := SDLDevice{}
+		err := device.Setup()
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "device setup error: %v\n", err)
+			os.Exit(1)
+		}
+		defer device.Teardown()
+
+		buf, err := os.ReadFile(CLI.Run.Path)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "run error: %v\n", err)
+			os.Exit(1)
+		}
+		reader := bytes.NewReader(buf)
+		vm, err := NewChip8VM(reader, &device)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "run error: %v\n", err)
+			os.Exit(1)
+		}
+		vm.Dump(os.Stdout)
+		if err = vm.Run(); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "run error: %v\n", err)
+			os.Exit(1)
+		}
 	case "disasm <path>":
-		//Dis
 		buf, err := os.ReadFile(CLI.Disasm.Path)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "disasm error: %v\n", err)
