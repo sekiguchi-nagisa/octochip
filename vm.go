@@ -275,6 +275,7 @@ func (vm *Chip8VM) dispatchSingleIns() {
 			for i := 0; i < KeyNum; i++ {
 				if vm.keyPressed&(1<<i) != 0 {
 					vm.reg[r1] = uint8(i)
+					vm.keyPressed &= ^(1 << i)
 					break
 				}
 			}
