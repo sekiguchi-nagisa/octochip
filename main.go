@@ -7,57 +7,62 @@ import (
 	"os"
 )
 
-var CLI struct {
-	Run struct {
-		Path string `arg:"positional" required:"" help:"Path to CHIP-8 ROM"`
-	} `cmd:"" help:"Run CHIP-8 ROM"`
+type CLIRun struct {
+	Path string `arg:"positional" required:"" help:"Path to CHIP-8 ROM"`
+}
 
-	Disasm struct {
-		Path string `arg:"positional" required:"" help:"Path to CHIP-8 ROM"`
-	} `cmd:"" help:"Disassemble CHIP-8 ROM"`
+type CLIDisasm struct {
+	Path string `arg:"positional" required:"" help:"Path to CHIP-8 ROM"`
+}
+
+var CLI struct {
+	Run CLIRun `cmd:"" help:"Run CHIP-8 ROM"`
+
+	Disasm CLIDisasm `cmd:"" help:"Disassemble CHIP-8 ROM"`
+}
+
+func (r *CLIRun) Run() error {
+	device := SDLDevice{}
+	err := device.Setup()
+	if err != nil {
+		return fmt.Errorf("device setup error: %v\n", err)
+	}
+	defer device.Teardown()
+
+	buf, err := os.ReadFile(r.Path)
+	if err != nil {
+		return fmt.Errorf("run error: %v\n", err)
+	}
+	reader := bytes.NewReader(buf)
+	vm, err := NewChip8VM(reader, &device)
+	if err != nil {
+		return fmt.Errorf("run error: %v\n", err)
+	}
+	vm.Dump(os.Stdout)
+	if err = vm.Run(); err != nil {
+		return fmt.Errorf("run error: %v\n", err)
+	}
+	return nil
+}
+
+func (d *CLIDisasm) Run() error {
+	buf, err := os.ReadFile(d.Path)
+	if err != nil {
+		return fmt.Errorf("disasm error: %v\n", err)
+	}
+	reader := bytes.NewReader(buf)
+	err = Disassemble(reader, os.Stdout)
+	if err != nil {
+		return fmt.Errorf("disasm error: %v\n", err)
+	}
+	return nil
 }
 
 func main() {
 	ctx := kong.Parse(&CLI, kong.UsageOnError())
-	switch ctx.Command() {
-	case "run <path>":
-		device := SDLDevice{}
-		err := device.Setup()
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "device setup error: %v\n", err)
-			os.Exit(1)
-		}
-		defer device.Teardown()
-
-		buf, err := os.ReadFile(CLI.Run.Path)
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "run error: %v\n", err)
-			os.Exit(1)
-		}
-		reader := bytes.NewReader(buf)
-		vm, err := NewChip8VM(reader, &device)
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "run error: %v\n", err)
-			os.Exit(1)
-		}
-		vm.Dump(os.Stdout)
-		if err = vm.Run(); err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "run error: %v\n", err)
-			os.Exit(1)
-		}
-	case "disasm <path>":
-		buf, err := os.ReadFile(CLI.Disasm.Path)
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "disasm error: %v\n", err)
-			os.Exit(1)
-		}
-		reader := bytes.NewReader(buf)
-		err = Disassemble(reader, os.Stdout)
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "disasm error: %v\n", err)
-			os.Exit(1)
-		}
-	default:
-		panic(ctx.Command())
+	err := ctx.Run()
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
 	}
 }
