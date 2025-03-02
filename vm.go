@@ -67,18 +67,20 @@ type Device interface {
 }
 
 type Chip8VM struct {
-	ram    [Chip8RAMSize]uint8
-	reg    [16]uint8
-	I      uint16     // for memory address
-	dt     uint8      // for delay timer
-	st     uint8      // for sound timer
-	pc     uint16     // program counter
-	sp     uint8      // stack pointer
-	stack  [16]uint16 // maintains return address
-	rng    *rand.Rand
-	screen Screen
-	keypad Keypad
-	device Device
+	ram             [Chip8RAMSize]uint8
+	reg             [16]uint8
+	I               uint16     // for memory address
+	dt              uint8      // for delay timer
+	st              uint8      // for sound timer
+	pc              uint16     // program counter
+	sp              uint8      // stack pointer
+	stack           [16]uint16 // maintains return address
+	rng             *rand.Rand
+	screen          Screen
+	keypad          Keypad
+	waitKeyReleased bool
+	waitingKey      uint8
+	device          Device
 }
 
 func NewChip8VM(reader io.Reader, device Device) (*Chip8VM, error) {
@@ -283,17 +285,23 @@ func (vm *Chip8VM) dispatchSingleIns() {
 	case OP_FX07:
 		vm.reg[r1] = vm.dt
 	case OP_FX0A:
-		if vm.keypad.IsEmpty() { // no key pressed
-			vm.pc -= 2 // redo
+		if vm.waitKeyReleased {
+			if vm.keypad.IsEmpty() {
+				vm.reg[r1] = vm.waitingKey
+				vm.waitKeyReleased = false
+			} else {
+				vm.pc -= 2 // redo
+			}
 		} else {
 			for i := 0; i < KeyNum; i++ {
 				key := uint8(i)
 				if vm.keypad.IsPressed(key) {
-					vm.reg[r1] = key
-					vm.keypad.Release(key)
+					vm.waitingKey = key
+					vm.waitKeyReleased = true
 					break
 				}
 			}
+			vm.pc -= 2 // redo
 		}
 	case OP_FX15:
 		vm.dt = vm.reg[r1]
