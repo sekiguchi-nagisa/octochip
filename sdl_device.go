@@ -74,8 +74,8 @@ func (sdlDevice *SDLDevice) Draw(screen *Screen) error {
 	return nil
 }
 
-func (sdlDevice *SDLDevice) PollKey(key *KeyPressed) bool {
-	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
+func (sdlDevice *SDLDevice) PollKey(keypad *Keypad) bool {
+	if event := sdl.PollEvent(); event != nil {
 		switch event := event.(type) {
 		case *sdl.QuitEvent:
 			fmt.Println("Quit")
@@ -85,7 +85,9 @@ func (sdlDevice *SDLDevice) PollKey(key *KeyPressed) bool {
 			case sdl.KEYDOWN:
 				if keycode, ok := keyMap[event.Keysym.Sym]; ok {
 					fmt.Printf("keydown: %s => %x\n", sdl.GetKeyName(event.Keysym.Sym), keycode)
-					*key = *key | (1 << keycode)
+					if keypad.IsEmpty() { // only allow one key
+						keypad.Press(keycode)
+					}
 				}
 				if event.Keysym.Sym == sdl.K_ESCAPE {
 					fmt.Printf("Quit: %s\n", sdl.GetKeyName(event.Keysym.Sym))
@@ -94,7 +96,7 @@ func (sdlDevice *SDLDevice) PollKey(key *KeyPressed) bool {
 			case sdl.KEYUP:
 				if keycode, ok := keyMap[event.Keysym.Sym]; ok {
 					fmt.Printf("keyup: %s => %x\n", sdl.GetKeyName(event.Keysym.Sym), keycode)
-					*key = *key & ^(1 << keycode)
+					keypad.Release(keycode)
 				}
 			}
 		}

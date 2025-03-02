@@ -18,8 +18,6 @@ const (
 
 type Screen = [ScreenWidth * ScreenHeight]byte
 
-type KeyPressed = uint16
-
 var fontSpriteSet = [80]uint8{
 	0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
 	0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -39,24 +37,48 @@ var fontSpriteSet = [80]uint8{
 	0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 }
 
+type Keypad struct {
+	value uint16
+}
+
+func (k *Keypad) Press(key uint8) {
+	k.value |= 1 << key
+}
+
+func (k *Keypad) Release(key uint8) {
+	k.value &= ^(1 << key)
+}
+
+func (k *Keypad) Clear() {
+	k.value = 0
+}
+
+func (k *Keypad) IsPressed(key uint8) bool {
+	return k.value&(1<<key) != 0
+}
+
+func (k *Keypad) IsEmpty() bool {
+	return k.value == 0
+}
+
 type Device interface {
 	Draw(screen *Screen) error
-	PollKey(key *KeyPressed) bool
+	PollKey(key *Keypad) bool
 }
 
 type Chip8VM struct {
-	ram        [Chip8RAMSize]uint8
-	reg        [16]uint8
-	I          uint16     // for memory address
-	dt         uint8      // for delay timer
-	st         uint8      // for sound timer
-	pc         uint16     // program counter
-	sp         uint8      // stack pointer
-	stack      [16]uint16 // maintains return address
-	rng        *rand.Rand
-	screen     Screen
-	keyPressed KeyPressed
-	device     Device
+	ram    [Chip8RAMSize]uint8
+	reg    [16]uint8
+	I      uint16     // for memory address
+	dt     uint8      // for delay timer
+	st     uint8      // for sound timer
+	pc     uint16     // program counter
+	sp     uint8      // stack pointer
+	stack  [16]uint16 // maintains return address
+	rng    *rand.Rand
+	screen Screen
+	keypad Keypad
+	device Device
 }
 
 func NewChip8VM(reader io.Reader, device Device) (*Chip8VM, error) {
@@ -110,7 +132,7 @@ const timerCountMicroSec = 16667
 func (vm *Chip8VM) Run() error {
 	prevMicroSec := time.Now().UnixMicro()
 	for int(vm.pc) <= len(vm.ram) {
-		if !vm.device.PollKey(&vm.keyPressed) {
+		if !vm.device.PollKey(&vm.keypad) {
 			return nil
 		}
 		vm.dispatchSingleIns()
@@ -251,23 +273,24 @@ func (vm *Chip8VM) dispatchSingleIns() {
 			}
 		}
 	case OP_EX9E:
-		if vm.keyPressed&(1<<vm.reg[r1]) != 0 {
+		if vm.keypad.IsPressed(vm.reg[r1]) {
 			vm.pc += 2
 		}
 	case OP_EXA1:
-		if vm.keyPressed&(1<<vm.reg[r1]) == 0 {
+		if !vm.keypad.IsPressed(vm.reg[r1]) {
 			vm.pc += 2
 		}
 	case OP_FX07:
 		vm.reg[r1] = vm.dt
 	case OP_FX0A:
-		if vm.keyPressed == 0 { // no key pressed
+		if vm.keypad.IsEmpty() { // no key pressed
 			vm.pc -= 2 // redo
 		} else {
 			for i := 0; i < KeyNum; i++ {
-				if vm.keyPressed&(1<<i) != 0 {
-					vm.reg[r1] = uint8(i)
-					vm.keyPressed &= ^(1 << i)
+				key := uint8(i)
+				if vm.keypad.IsPressed(key) {
+					vm.reg[r1] = key
+					vm.keypad.Release(key)
 					break
 				}
 			}
